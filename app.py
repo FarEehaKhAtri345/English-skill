@@ -1,75 +1,87 @@
-import os
 import streamlit as st
-from groq import Groq
+import random
 
-# Initialize Groq client with API key from environment variable
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Define question sets
+vocabulary_questions = [
+    {
+        "question": "What is a synonym for 'happy'?",
+        "options": ["Sad", "Joyful", "Angry", "Tired"],
+        "answer": "Joyful"
+    },
+    {
+        "question": "Choose the correct word: 'He is very _____ in the morning.'",
+        "options": ["tired", "awake", "sleepy", "hungry"],
+        "answer": "sleepy"
+    },
+]
 
-# Function to get feedback from Groq API
-def get_feedback(user_essay, level):
-    # Define the system prompt for essay feedback
-    system_prompt = """
-    You are an expert academic writer with 40 years of experience in providing concise but effective feedback.
-    Instead of asking the student to do this and that, you just say replace this with this to improve in a concise manner.
-    You provide concise grammar mistakes, saying replace this with this along with mistake type. 
-    You also provide specific replacement sentences for cohesion and abstraction, and you point out all the vocabulary saying replace this word with this.
-    You have to analyze the writing for grammar, cohesion, sentence structure, vocabulary, and the use of simple, complex, and compound sentences, as well as the effectiveness of abstraction.
-    Provide detailed feedback on any mistakes and present an improved version of the writing.
-    Do not use words such as dive, discover, uncover, delve, tailor, equipped, navigate, landscape, delve, magic, comprehensive embrace, well equipped, unleash, cutting edge, harness.
-    Strictly follow academic style in writing. Change the sentences according to English standards if needed but do not add any sentences by yourself.
-    Give feedback for different levels: A1 for beginners, A2 for average, A3 for advanced, up to C1 level.
-    """
+grammar_questions = [
+    {
+        "question": "Which one is correct: 'She have a dog' or 'She has a dog'?",
+        "answer": "She has a dog"
+    },
+    {
+        "question": "Fill in the blank: 'I _____ to the market yesterday.' (go)",
+        "answer": "went"
+    }
+]
 
-    # Sending the essay and level to Groq API
-    response = client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": f"{system_prompt}\nEssay:\n{user_essay}\nLevel: {level}"
-            }
-        ],
-        model="llama3-8b-8192"
-    )
-    
-    # Extract feedback from API response
-    feedback = response.choices[0].message.content
-    return feedback
+comprehension_questions = [
+    {
+        "question": "Translate this sentence to English: 'Elle mange une pomme.'",
+        "answer": "She is eating an apple"
+    }
+]
 
-# Streamlit UI
-st.title("Writing Assistant for IELTS/TOEFL/DET Preparation")
+# Helper function to ask questions
+def ask_question(question_set):
+    question = random.choice(question_set)
+    return question
 
-# Sidebar for selecting a plan
-st.sidebar.title("Select Your Writing Plan")
-plan = st.sidebar.radio("Choose a Plan", ("30 Days Plan", "45 Days Plan", "60 Days Plan"))
+# Initialize session state for user input and chatbot mode
+if "mode" not in st.session_state:
+    st.session_state.mode = None
+if "question" not in st.session_state:
+    st.session_state.question = None
+if "feedback" not in st.session_state:
+    st.session_state.feedback = None
 
-# Display plan details
-if plan == "30 Days Plan":
-    st.sidebar.write("Write every day for 30 days and get daily feedback on your essays.")
-elif plan == "45 Days Plan":
-    st.sidebar.write("Write every day for 45 days and improve your writing progressively.")
-else:
-    st.sidebar.write("A comprehensive 60 days writing improvement plan for advanced learners.")
+# Title and description
+st.title("English Skill Chatbot")
+st.write("Hello! I can help you improve your English skills. Choose a category to get started: Vocabulary, Grammar, or Comprehension.")
 
-# Show the current day based on the selected plan (for simplicity, showing Day 1 here)
-st.subheader(f"Day 1 of {plan}")
-st.write("Topic: Discuss a recent technological advancement and its impact on society.")
+# User selection for the type of question
+st.session_state.mode = st.selectbox("Choose a category:", ["Select", "Vocabulary", "Grammar", "Comprehension"])
 
-# Textbox for the user to input their essay
-user_essay = st.text_area("Write your essay here:", height=300)
+# Generate a question based on the selected mode
+if st.session_state.mode == "Vocabulary":
+    st.session_state.question = ask_question(vocabulary_questions)
+elif st.session_state.mode == "Grammar":
+    st.session_state.question = ask_question(grammar_questions)
+elif st.session_state.mode == "Comprehension":
+    st.session_state.question = ask_question(comprehension_questions)
 
-# Dropdown to select proficiency level
-level = st.selectbox("Select your proficiency level:", ["A1 (Beginner)", "A2 (Average)", "B1", "B2", "C1 (Advanced)"])
+# Display the question and get user input
+if st.session_state.mode != "Select" and st.session_state.question:
+    st.write("Question:", st.session_state.question["question"])
 
-# Button to submit essay for feedback
-if st.button("Submit for Feedback"):
-    if user_essay.strip():
-        st.write("Analyzing your essay...")
-
-        # Get feedback using the get_feedback function
-        feedback = get_feedback(user_essay, level)
-        
-        # Display the feedback provided by the model
-        st.subheader("Feedback on your essay:")
-        st.write(feedback)
+    # For questions with options, display them
+    if "options" in st.session_state.question:
+        user_answer = st.radio("Choose an answer:", st.session_state.question["options"])
     else:
-        st.warning("Please write your essay before submitting!")
+        user_answer = st.text_input("Your answer:")
+
+    # Check answer and provide feedback when user submits
+    if st.button("Submit Answer"):
+        if user_answer.lower() == st.session_state.question["answer"].lower():
+            st.session_state.feedback = "Correct! Well done."
+        else:
+            st.session_state.feedback = f"Oops! The correct answer is '{st.session_state.question['answer']}'. Keep practicing!"
+
+# Display feedback
+if st.session_state.feedback:
+    st.write(st.session_state.feedback)
+    # Reset question and feedback after showing the result
+    st.session_state.question = None
+    st.session_state.feedback = None
+
